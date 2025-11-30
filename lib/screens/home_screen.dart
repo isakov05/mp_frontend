@@ -37,13 +37,11 @@ class _HomeScreenState extends State<HomeScreen> {
     loadDashboard();
   }
 
-  /// LOAD DAILY GOAL FROM LOCAL STORAGE
   Future<void> loadDailyGoal() async {
     dailyGoal = await AuthStorage.getGoal();
     setState(() {});
   }
 
-  /// LOAD DASHBOARD DATA
   Future<void> loadDashboard() async {
     final token = await AuthStorage.getToken();
     if (token == null) {
@@ -52,7 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      // Load settings (goals)
       final settingsRes = await api.getSettings(token);
 
       dailyGoal = settingsRes.data["daily_calorie_goal"] ?? dailyGoal;
@@ -60,10 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
       fatGoal = (settingsRes.data["daily_fat_goal"] as num).toDouble();
       carbsGoal = (settingsRes.data["daily_carbs_goal"] as num).toDouble();
 
-      // Save calorie goal
       await AuthStorage.saveGoal(dailyGoal);
 
-      // Load today's nutrition
       final todayRes = await api.getToday(token);
 
       setState(() {
@@ -85,8 +80,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Dashboard")),
+      appBar: AppBar(
+        title: const Text("Dashboard"),
+        backgroundColor: scheme.surface,
+      ),
 
       body: loading
           ? const Center(child: CircularProgressIndicator())
@@ -95,85 +96,130 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(20),
                 children: [
-                  // 🔵 Main Calorie Progress
+
+                  // ==========================
+                  // Main Calorie Ring
+                  // ==========================
                   Center(
-                    child: CalorieRing(
-                      progress: (totalCalories / dailyGoal).clamp(0.0, 1.0),
-                      calories: totalCalories,
-                      goal: dailyGoal,
-                    ),
-                  ),
-
-                  const SizedBox(height: 25),
-
-                  // 🍗 Macro Rings Section
-                  SectionCard(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          MacroRing(
-                            progress: proteinGoal > 0 ? protein / proteinGoal : 0,
-                            amount: protein,
-                            goal: proteinGoal,
-                            label: "Protein",
-                            color: Colors.orangeAccent,
-                          ),
-                          MacroRing(
-                            progress: fatGoal > 0 ? fat / fatGoal : 0,
-                            amount: fat,
-                            goal: fatGoal,
-                            label: "Fat",
-                            color: Colors.pinkAccent,
-                          ),
-                          MacroRing(
-                            progress: carbsGoal > 0 ? carbs / carbsGoal : 0,
-                            amount: carbs,
-                            goal: carbsGoal,
-                            label: "Carbs",
-                            color: Colors.lightBlueAccent,
-                          ),
-                        ],
+                    child: Container(
+                      padding: const EdgeInsets.all(25),
+                      decoration: BoxDecoration(
+                        color: scheme.surface,
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: isDark
+                            ? []
+                            : [
+                                BoxShadow(
+                                  color: Colors.black12,
+                                  blurRadius: 10,
+                                )
+                              ],
+                      ),
+                      child: CalorieRing(
+                        progress: (totalCalories / dailyGoal).clamp(0.0, 1.0),
+                        calories: totalCalories,
+                        goal: dailyGoal,
                       ),
                     ),
                   ),
 
                   const SizedBox(height: 25),
 
-                  const Text(
+                  // ==========================
+                  // Macro Section
+                  // ==========================
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    decoration: BoxDecoration(
+                      color: scheme.surface,
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: isDark
+                          ? []
+                          : [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 10,
+                              )
+                            ],
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        MacroRing(
+                          progress: proteinGoal > 0 ? protein / proteinGoal : 0,
+                          amount: protein,
+                          goal: proteinGoal,
+                          label: "Protein",
+                          color: Colors.orangeAccent,
+                        ),
+                        MacroRing(
+                          progress: fatGoal > 0 ? fat / fatGoal : 0,
+                          amount: fat,
+                          goal: fatGoal,
+                          label: "Fat",
+                          color: Colors.pinkAccent,
+                        ),
+                        MacroRing(
+                          progress: carbsGoal > 0 ? carbs / carbsGoal : 0,
+                          amount: carbs,
+                          goal: carbsGoal,
+                          label: "Carbs",
+                          color: Colors.lightBlueAccent,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  Text(
                     "Today's Foods",
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: scheme.onSurface,
+                    ),
                   ),
 
                   const SizedBox(height: 10),
 
                   if (logs.isEmpty)
-                    const Text("No foods logged yet", style: TextStyle(color: Colors.grey)),
+                    Text(
+                      "No foods logged yet",
+                      style: TextStyle(color: scheme.onSurfaceVariant),
+                    ),
 
-                  for (var log in logs) buildFoodLogCard(log),
+                  for (var log in logs) _foodCard(context, log),
                 ],
               ),
             ),
     );
   }
 
-  Widget buildFoodLogCard(Map log) {
+  // ==========================
+  // Food Log Card
+  // ==========================
+  Widget _foodCard(BuildContext context, Map log) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final created = DateTime.parse(log["created_at"]);
     final time = "${created.hour}:${created.minute.toString().padLeft(2, '0')}";
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: scheme.surface,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          )
-        ],
+        boxShadow: isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                )
+              ],
       ),
       child: Row(
         children: [
@@ -193,8 +239,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 : Container(
                     width: 90,
                     height: 90,
-                    color: Colors.grey.shade200,
-                    child: const Icon(Icons.fastfood, size: 40),
+                    color: scheme.surfaceVariant,
+                    child: Icon(Icons.fastfood,
+                        size: 40, color: scheme.onSurfaceVariant),
                   ),
           ),
 
@@ -205,35 +252,33 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // FOOD NAME
                   Text(
                     log["food_name"],
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.w600,
+                      color: scheme.onSurface,
                     ),
                   ),
 
                   const SizedBox(height: 6),
 
-                  // CALORIES
                   Text(
                     "${log["calories"]} kcal",
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade600,
+                      color: scheme.primary,
                     ),
                   ),
 
                   const SizedBox(height: 4),
 
-                  // TIME + MACROS
                   Text(
                     "$time • P:${log["protein_g"]}g  F:${log["fat_g"]}g  C:${log["carbs_g"]}g",
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey.shade600,
+                      color: scheme.onSurfaceVariant,
                     ),
                   ),
                 ],

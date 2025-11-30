@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
 import '../services/api_service.dart';
 import '../services/auth_storage.dart';
+import '../theme/theme_controller.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -13,6 +16,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final api = ApiService();
 
   bool loading = true;
+  String email = "";
 
   final nameCtrl = TextEditingController();
 
@@ -23,8 +27,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   final oldPassCtrl = TextEditingController();
   final newPassCtrl = TextEditingController();
-
-  String email = "";
 
   @override
   void initState() {
@@ -37,12 +39,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (token == null) return;
 
     try {
-      // Load user info
       final userRes = await api.getProfile(token);
       nameCtrl.text = userRes.data["name"] ?? "";
       email = userRes.data["email"] ?? "";
 
-      // Load daily goals
       final settingsRes = await api.getSettings(token);
       calorieCtrl.text = "${settingsRes.data["daily_calorie_goal"] ?? 2000}";
       proteinCtrl.text = "${settingsRes.data["daily_protein_goal"] ?? 0}";
@@ -63,13 +63,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     try {
       await api.updateName(token, nameCtrl.text.trim());
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Name updated ✔")),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Failed to update: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed: $e")),
+      );
     }
   }
 
@@ -85,15 +85,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         int.parse(fatCtrl.text),
         int.parse(carbsCtrl.text),
       );
-      
+
       await AuthStorage.saveGoal(int.parse(calorieCtrl.text));
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Goals updated ✔")),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Failed: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed: $e")),
+      );
     }
   }
 
@@ -112,13 +113,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SnackBar(content: Text("Password changed ✔")),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Failed: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed: $e")),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeController = Provider.of<ThemeController>(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text("Profile")),
 
@@ -127,8 +131,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                const SizedBox(height: 10),
 
+                // ----------------------------
+                // Profile Header
+                // ----------------------------
                 Center(
                   child: CircleAvatar(
                     radius: 45,
@@ -138,20 +144,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
 
                 const SizedBox(height: 10),
+
                 Center(
                   child: Text(email, style: TextStyle(color: Colors.grey[600])),
                 ),
 
                 const SizedBox(height: 30),
 
-                // ==========================
-                // Name
-                // ==========================
+                // ----------------------------
+                // THEME MODE SWITCH (SLIDER)
+                // ----------------------------
+                const Text(
+                  "Appearance",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 10),
+
+                SegmentedButton<ThemeMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: ThemeMode.system,
+                      label: Text("System"),
+                      icon: Icon(Icons.settings_suggest),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.light,
+                      label: Text("Light"),
+                      icon: Icon(Icons.light_mode),
+                    ),
+                    ButtonSegment(
+                      value: ThemeMode.dark,
+                      label: Text("Dark"),
+                      icon: Icon(Icons.dark_mode),
+                    ),
+                  ],
+                  selected: { themeController.themeMode },
+                  onSelectionChanged: (selection) {
+                    themeController.setTheme(selection.first);
+                  },
+                ),
+
+                const SizedBox(height: 30),
+
+                // ----------------------------
+                // NAME
+                // ----------------------------
                 const Text(
                   "Name",
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
+
                 TextField(
                   controller: nameCtrl,
                   decoration: InputDecoration(
@@ -160,6 +203,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 8),
                 FilledButton(
                   onPressed: saveName,
@@ -168,14 +212,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 const SizedBox(height: 30),
 
-                // ==========================
-                // Password
-                // ==========================
+                // ----------------------------
+                // PASSWORD
+                // ----------------------------
                 const Text(
                   "Change Password",
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
+
                 TextField(
                   controller: oldPassCtrl,
                   obscureText: true,
@@ -186,7 +231,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 12),
+
                 TextField(
                   controller: newPassCtrl,
                   obscureText: true,
@@ -197,6 +244,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 12),
                 FilledButton(
                   onPressed: changePassword,
@@ -205,53 +253,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 const SizedBox(height: 30),
 
-                // ==========================
-                // Goals
-                // ==========================
+                // ----------------------------
+                // GOALS
+                // ----------------------------
                 const Text(
                   "Daily Goals",
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
+
                 const SizedBox(height: 10),
 
-                TextField(
-                  controller: calorieCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: "Calories (kcal)",
-                    border: OutlineInputBorder(),
-                  ),
-                ),
+                _goalField(calorieCtrl, "Calories (kcal)"),
                 const SizedBox(height: 10),
 
-                TextField(
-                  controller: proteinCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: "Protein (g)",
-                    border: OutlineInputBorder(),
-                  ),
-                ),
+                _goalField(proteinCtrl, "Protein (g)"),
                 const SizedBox(height: 10),
 
-                TextField(
-                  controller: fatCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: "Fat (g)",
-                    border: OutlineInputBorder(),
-                  ),
-                ),
+                _goalField(fatCtrl, "Fat (g)"),
                 const SizedBox(height: 10),
 
-                TextField(
-                  controller: carbsCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: "Carbs (g)",
-                    border: OutlineInputBorder(),
-                  ),
-                ),
+                _goalField(carbsCtrl, "Carbs (g)"),
                 const SizedBox(height: 12),
 
                 FilledButton(
@@ -261,9 +282,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 const SizedBox(height: 40),
 
-                // ==========================
-                // Logout
-                // ==========================
+                // ----------------------------
+                // LOGOUT
+                // ----------------------------
                 FilledButton.tonal(
                   onPressed: () async {
                     await AuthStorage.clear();
@@ -277,6 +298,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
+    );
+  }
+
+  Widget _goalField(TextEditingController controller, String label) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 }

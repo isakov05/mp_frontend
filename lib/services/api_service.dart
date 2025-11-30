@@ -12,9 +12,19 @@ class ApiService {
 
   /// REGISTER
   Future<Response> register(String name, String email, String password) {
-    return _dio.post("/auth/register",
-        data: {"email": email, "password": password, "name": name});
+    return _dio.post(
+      "/auth/register",
+      options: Options(
+        headers: {"Content-Type": "application/json"},
+      ),
+      data: {
+        "email": email.trim(),
+        "password": password.trim(),
+        "name": name.trim(),
+      },
+    );
   }
+
 
   /// GET USER PROFILE
   Future<Response> getProfile(String token) {
